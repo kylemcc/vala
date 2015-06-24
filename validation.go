@@ -71,13 +71,13 @@ import (
 )
 
 func validationFactory(numErrors int) *Validation {
-	return &Validation{make([]string, numErrors)}
+	return &Validation{make([]error, 0, numErrors)}
 }
 
 // Validation contains all the errors from performing Checkers, and is
 // the fluent type off which all Validation methods hang.
 type Validation struct {
-	Errors []string
+	Errors []error
 }
 
 // BeginValidation begins a validation check.
@@ -125,12 +125,12 @@ func (val *Validation) CheckSetErrorAndPanic(retError *error) *Validation {
 func (val *Validation) Validate(checkers ...Checker) *Validation {
 
 	for _, checker := range checkers {
-		if pass, msg := checker(); !pass {
+		if pass, err := checker(); !pass {
 			if val == nil {
 				val = validationFactory(1)
 			}
 
-			val.Errors = append(val.Errors, msg)
+			val.Errors = append(val.Errors, err)
 		}
 	}
 
@@ -138,9 +138,13 @@ func (val *Validation) Validate(checkers ...Checker) *Validation {
 }
 
 func (val *Validation) constructErrorMessage() error {
+	errorStrings := make([]string, 0, len(val.Errors))
+	for _, e := range val.Errors {
+		errorStrings = append(errorStrings, e.Error())
+	}
 	return fmt.Errorf(
 		"parameter validation failed:\t%s",
-		strings.Join(val.Errors, "\n\t"),
+		strings.Join(errorStrings, "\n\t"),
 	)
 }
 
@@ -152,17 +156,17 @@ func (val *Validation) constructErrorMessage() error {
 // checker.  If the Checker fails, returns false with a corresponding
 // error message. If the Checker succeeds, returns true, but _also_
 // returns an error message. This helps to support the Not function.
-type Checker func() (checkerIsTrue bool, errorMessage string)
+type Checker func() (checkerIsTrue bool, err error)
 
 // Not returns the inverse of any Checker passed in.
 func Not(checker Checker) Checker {
 
-	return func() (passed bool, errorMessage string) {
-		if passed, errorMessage = checker(); passed {
-			return false, fmt.Sprintf("Not(%s)", errorMessage)
+	return func() (passed bool, err error) {
+		if passed, err = checker(); passed {
+			return false, fmt.Errorf("Not(%s)", err)
 		}
 
-		return true, ""
+		return true, nil
 	}
 }
 
@@ -170,8 +174,8 @@ func Not(checker Checker) Checker {
 // they are not equal.
 func Equals(lhs, rhs interface{}, paramName string) Checker {
 
-	return func() (pass bool, errMsg string) {
-		return (lhs == rhs), fmt.Sprintf("Parameters were not equal: %v, %v", lhs, rhs)
+	return func() (pass bool, err error) {
+		return (lhs == rhs), fmt.Errorf("Parameters were not equal: %v, %v", lhs, rhs)
 	}
 }
 
@@ -179,7 +183,7 @@ func Equals(lhs, rhs interface{}, paramName string) Checker {
 // attempts to check the most performant things first, and then
 // degrade into the less-performant, but accurate checks for nil.
 func IsNotNil(obtained interface{}, paramName string) Checker {
-	return func() (isNotNil bool, errMsg string) {
+	return func() (isNotNil bool, err error) {
 
 		if obtained == nil {
 			isNotNil = false
@@ -200,16 +204,16 @@ func IsNotNil(obtained interface{}, paramName string) Checker {
 			}
 		}
 
-		return isNotNil, "Parameter was nil: " + paramName
+		return isNotNil, fmt.Errorf("Parameter was nil: %v", paramName)
 	}
 }
 
 // HasLen checks to ensure the given argument is the desired length.
 func HasLen(param interface{}, desiredLength int, paramName string) Checker {
 
-	return func() (hasLen bool, errMsg string) {
+	return func() (hasLen bool, err error) {
 		hasLen = desiredLength == reflect.ValueOf(param).Len()
-		return hasLen, "Parameter did not contain the correct number of elements: " + paramName
+		return hasLen, fmt.Errorf("Parameter did not contain the correct number of elements: %v", paramName)
 	}
 }
 
@@ -217,24 +221,24 @@ func HasLen(param interface{}, desiredLength int, paramName string) Checker {
 // given value.
 func GreaterThan(param int, comparativeVal int, paramName string) Checker {
 
-	return func() (isGreaterThan bool, errMsg string) {
+	return func() (isGreaterThan bool, err error) {
 		if isGreaterThan = param > comparativeVal; !isGreaterThan {
-			errMsg = fmt.Sprintf(
+			err = fmt.Errorf(
 				"Parameter's length was not greater than:  %s(%d) < %d",
 				paramName,
 				param,
 				comparativeVal)
 		}
 
-		return isGreaterThan, errMsg
+		return isGreaterThan, err
 	}
 }
 
 // StringNotEmpty checks to ensure the given string is not empty.
 func StringNotEmpty(obtained, paramName string) Checker {
-	return func() (isNotEmpty bool, errMsg string) {
+	return func() (isNotEmpty bool, err error) {
 		isNotEmpty = obtained != ""
-		errMsg = fmt.Sprintf("Parameter is an empty string: %s", paramName)
+		err = fmt.Errorf("Parameter is an empty string: %s", paramName)
 		return
 	}
 }
