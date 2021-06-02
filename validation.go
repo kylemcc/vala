@@ -138,12 +138,16 @@ func (val *Validation) Validate(checkers ...Checker) *Validation {
 }
 
 func (val *Validation) constructErrorMessage() error {
+	if len(val.Errors) == 1 {
+		return fmt.Errorf("parameter validation failed: %s", val.Errors[0])
+	}
+
 	errorStrings := make([]string, 0, len(val.Errors))
 	for _, e := range val.Errors {
 		errorStrings = append(errorStrings, e.Error())
 	}
 	return fmt.Errorf(
-		"parameter validation failed:\t%s",
+		"parameter validation failed:\n\t%s",
 		strings.Join(errorStrings, "\n\t"),
 	)
 }
