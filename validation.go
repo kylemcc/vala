@@ -246,3 +246,18 @@ func StringNotEmpty(obtained, paramName string) Checker {
 		return
 	}
 }
+
+// Or executes multiple Checkers and makes sure one is valid
+func Or(checkers ...Checker) Checker {
+	return func() (valid bool, err error) {
+		msgs := make([]string, 0, len(checkers))
+		for _, c := range checkers {
+			v, e := c()
+			if v {
+				return true, nil
+			}
+			msgs = append(msgs, e.Error())
+		}
+		return false, fmt.Errorf("all checks failed:\n\t%s", strings.Join(msgs, "\n\t"))
+	}
+}

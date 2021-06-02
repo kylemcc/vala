@@ -167,3 +167,21 @@ func TestStringNotEmpty(t *testing.T) {
 		t.FailNow()
 	}
 }
+
+func TestOr(t *testing.T) {
+	cases := []struct {
+		checkers []Checker
+		pass     bool
+	}{
+		{[]Checker{HasLen("short", 10, "test"), StringNotEmpty("", "test")}, false},
+		{[]Checker{HasLen("1234567890", 10, "test"), StringNotEmpty("", "test")}, true},
+		{[]Checker{HasLen("short", 10, "test"), StringNotEmpty("foo", "test")}, true},
+	}
+
+	for i, c := range cases {
+		err := BeginValidation().Validate(Or(c.checkers...)).Check()
+		if (err == nil) != c.pass {
+			t.Errorf("Or checker #%d returned incorrect result: %v\n", i, err)
+		}
+	}
+}
