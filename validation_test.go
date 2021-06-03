@@ -185,3 +185,21 @@ func TestOr(t *testing.T) {
 		}
 	}
 }
+
+func TestAnd(t *testing.T) {
+	cases := []struct {
+		checkers []Checker
+		pass     bool
+	}{
+		{[]Checker{HasLen("short", 10, "test"), StringNotEmpty("", "test")}, false},
+		{[]Checker{HasLen("1234567890", 10, "test"), StringNotEmpty("test", "test")}, true},
+		{[]Checker{HasLen("short", 10, "test"), StringNotEmpty("foo", "test")}, false},
+	}
+
+	for i, c := range cases {
+		err := BeginValidation().Validate(And(c.checkers...)).Check()
+		if (err == nil) != c.pass {
+			t.Errorf("And checker #%d returned incorrect result: %v\n", i, err)
+		}
+	}
+}

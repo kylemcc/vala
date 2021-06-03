@@ -261,3 +261,15 @@ func Or(checkers ...Checker) Checker {
 		return false, fmt.Errorf("all checks failed:\n\t%s", strings.Join(msgs, "\n\t"))
 	}
 }
+
+// And executes multiple Checkers and makes sure all are valid
+func And(checkers ...Checker) Checker {
+	return func() (valid bool, err error) {
+		for _, checker := range checkers {
+			if pass, err := checker(); !pass {
+				return false, err
+			}
+		}
+		return true, nil
+	}
+}
